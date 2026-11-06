@@ -2,10 +2,13 @@
   "name": "resale-scanner",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "npm run test -w @rs/core && npm run test -w @rs/server",
-    "typecheck": "npm run typecheck -w @rs/core && npm run typecheck -w @rs/server"
+    "typecheck": "npm run typecheck -w @rs/core && npm run typecheck -w @rs/server && npm run typecheck -w @rs/mobile"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

@@ -88,7 +88,7 @@ export function createApp(deps: Deps) {
     return c.json({ accountId: a.id, entitlement: entitlement(a, now()), dataSources: sources() });
   });
 
-  // ---- scans: start ----
+  // scans: start
 
   const outOfScans = (c: Context) =>
     err(c, 402, "You are out of scans. Pick up a scan pack or subscribe to keep scanning.");
@@ -201,7 +201,7 @@ export function createApp(deps: Deps) {
     return c.json({ scanId: scan.id, candidates: scan.candidates, dataSource: scan.dataSource, entitlement: entitlement(account, now()) });
   });
 
-  // ---- scans: price ----
+  // scans: price
 
   async function soldRows(keyword: string, days: number): Promise<{ rows: SoldRow[]; cached: boolean }> {
     const key = `${deps.sold.id}|${days}|${keyword.toLowerCase().replace(/\s+/g, " ").trim()}`;
@@ -263,7 +263,7 @@ export function createApp(deps: Deps) {
     });
   });
 
-  // ---- history ----
+  // history
 
   const summary = (s: ScanRecord) => ({
     id: s.id,
@@ -308,7 +308,7 @@ export function createApp(deps: Deps) {
     return c.json({ ok: true });
   });
 
-  // ---- purchases (Apple only) ----
+  // purchases (Apple only)
 
   app.post("/v1/purchases", async (c) => {
     const account = c.get("account");

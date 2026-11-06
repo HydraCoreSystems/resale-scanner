@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Resale Scanner",
+    "slug": "resale-scanner",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "resalescanner",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F1E8D8",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.placeholder.resalescanner",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The camera reads barcodes and takes the photo that names the item you are looking at. Photos are not kept after the scan."
+        }
+      ]
+    ],
+    "experiments": { "typedRoutes": false },
+    "extra": {
+      "apiUrl": "http://localhost:8787"
+    }
+  }
+}
