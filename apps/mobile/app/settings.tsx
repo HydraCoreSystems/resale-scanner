@@ -1,11 +1,11 @@
 import { DEFAULT_SETTINGS, type VerdictSettings } from "@rs/core";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { useSession } from "../src/session";
 import { useVerdictSettings } from "../src/settings";
-import { colors, space, type } from "../src/theme";
-import { Button, Card } from "../src/ui";
+import { colors, layout, space, type } from "../src/theme";
+import { Button, Card, FieldBox, Pill, SectionLabel } from "../src/ui";
 
 type Field = { key: keyof VerdictSettings; label: string; unit: "$" | "%"; help: string };
 
@@ -32,38 +32,59 @@ export default function Settings() {
     void update({ ...settings, [f.key]: n });
   };
 
+  const paid = entitlement?.plan === "paid";
+
   return (
-    <ScrollView contentContainerStyle={{ padding: space.md, gap: space.md, paddingBottom: space.xl * 2 }} keyboardShouldPersistTaps="handled">
-      <Text style={type.title}>Your call settings</Text>
-      <Text style={type.small}>These change how the Buy, Close call and Pass answer is worked out. Calls need at least {settings.minSales} recorded sales.</Text>
-      {FIELDS.map((f) => (
-        <Card key={f.key}>
-          <Text style={[type.body, { fontWeight: "700" }]}>{f.label}</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 6 }}>
-            {f.unit === "$" ? <Text style={type.title}>$</Text> : null}
-            <TextInput
+    <ScrollView
+      contentContainerStyle={{ padding: layout.screenPad, paddingBottom: layout.sectionGap * 2 }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
+      <Text style={type.screenTitle}>Your call settings</Text>
+      <Text style={[type.small, { marginTop: space.sm }]}>
+        These change how the Buy, Close call and Pass answer is worked out. Calls need at least {settings.minSales} recorded sales.
+      </Text>
+
+      <Card style={{ marginTop: space.xl, gap: space.xxl }}>
+        {FIELDS.map((f) => (
+          <View key={f.key}>
+            <SectionLabel>{f.label}</SectionLabel>
+            <FieldBox
               value={draft[f.key] ?? ""}
               onChangeText={(t) => setDraft((d) => ({ ...d, [f.key]: t }))}
               onEndEditing={() => commit(f)}
               keyboardType="decimal-pad"
-              style={{ fontSize: 24, fontWeight: "800", color: colors.text, minWidth: 80 }}
+              prefix={f.unit === "$" ? "$" : undefined}
+              suffix={f.unit === "%" ? "%" : undefined}
+              accessibilityLabel={f.label}
             />
-            {f.unit === "%" ? <Text style={type.title}>%</Text> : null}
+            <Text style={[type.small, { marginTop: space.sm }]}>{f.help}</Text>
           </View>
-          <Text style={type.small}>{f.help}</Text>
-        </Card>
-      ))}
-      <Button label="Reset to starting values" kind="quiet" onPress={() => void update(DEFAULT_SETTINGS)} />
-
-      <Text style={[type.title, { marginTop: space.md }]}>Account</Text>
-      <Card>
-        <Text style={type.body}>
-          {entitlement?.plan === "paid" ? "Subscribed." : "Free plan."} {entitlement?.totalRemaining ?? 0} scans left.
-        </Text>
+        ))}
       </Card>
-      <Button label="Get more scans" onPress={() => router.push("/paywall")} />
-      <Button label="Sign out" kind="quiet" onPress={() => void signOut()} />
-      <Text style={type.small}>
+
+      <Button label="Reset to starting values" kind="quiet" onPress={() => void update(DEFAULT_SETTINGS)} style={{ marginTop: space.xl }} />
+
+      <View style={{ marginTop: layout.sectionGap }}>
+        <SectionLabel>Account</SectionLabel>
+        <Card>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.md }}>
+            <Text style={type.bodyStrong}>{paid ? "Subscribed" : "Free plan"}</Text>
+            <Pill
+              label={`${entitlement?.totalRemaining ?? 0} scans left`}
+              ground={paid ? colors.accentTint : colors.field}
+              textColor={paid ? colors.accent : colors.muted}
+            />
+          </View>
+        </Card>
+      </View>
+
+      <View style={{ marginTop: space.md, gap: space.md }}>
+        <Button label="Get more scans" onPress={() => router.push("/paywall")} />
+        <Button label="Sign out" kind="dangerQuiet" onPress={() => void signOut()} />
+      </View>
+
+      <Text style={[type.caption, { marginTop: space.lg }]}>
         Photos are sent for one scan only and are not kept. Scan results are saved to your account so you can find them again.
       </Text>
     </ScrollView>

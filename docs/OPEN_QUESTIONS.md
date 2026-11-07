@@ -35,3 +35,15 @@ These are marked UNVERIFIED in the code comments. The first free tier call settl
 * **History opens saved results** without re pricing, so reopening a scan at the register costs nothing and needs no signal to the vendors.
 * **No rate limiting beyond scan counts** and no abuse controls yet. Fine for TestFlight on one phone. Needed before launch.
 * **Storage** is a JSON file behind a `Store` interface. A real database should replace it before real users.
+
+## Design pass, Nov 7 2026
+
+* **No Android preview build exists.** This workspace has no Android SDK and cannot download one (the SDK and Gradle hosts refuse the connection), and a cloud build service needs an account that nobody has opened. What I can show: the Android JavaScript bundle compiles with no errors, and `app.json` now has an Android package id, so the later build is a packaging step. The screenshots in `docs/design-pass` are the same screens rendered in a browser at iPhone size, not an Android device.
+* **An Android review build would stop at sign in.** Sign in is Apple only by the spec, and Apple sign in does not exist on Android. Test builds show a dev sign in button, but a release style preview build would not. Someone has to decide what a reviewer on Android signs in with. I did not invent one.
+* **Larger system text was not tested.** The verdict figures wrap to stacked columns by design, but I could not turn on a bigger text setting in the browser render.
+* **Best value pill** is driven by the annual product id that the paywall already holds, so no data flow changed.
+* **Display fix beyond the brief:** a negative profit now prints as -$5.39 instead of $-5.39. The Pass card shows it at 28 point, so the old format looked wrong. Math is untouched.
+* **Header** is a small custom component instead of the native header so it can carry the one point bottom border. Back and Close are in the same place as before.
+* **Check marks** on the paywall are drawn shapes, not a font glyph, so they look the same on every phone.
+* **Text field on the Type sheet** uses the body text size inside the field box, since the 22 point bold treatment in the brief is meant for the money and percent fields.
+* **Fonts** (Fraunces and Inter) load from packages bundled in the app, so nothing is fetched at run time. If a font file ever fails to load the app still opens in the system font.

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "resalescanner",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#F1E8D8",
+    "backgroundColor": "#EFE4CB",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
@@ -27,9 +27,18 @@
         }
       ]
     ],
-    "experiments": { "typedRoutes": false },
+    "experiments": {
+      "typedRoutes": false
+    },
     "extra": {
       "apiUrl": "http://localhost:8787"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "android": {
+      "package": "com.placeholder.resalescanner"
     }
   }
 }

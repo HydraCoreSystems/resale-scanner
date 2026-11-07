@@ -2,15 +2,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, FlatList, Pressable, Text, View } from "react-native";
 import { api, type ScanSummary } from "../src/api";
-import { colors, space, type } from "../src/theme";
-import { ErrorNote, SampleBanner, money, niceDate } from "../src/ui";
-
-const CALL_TEXT: Record<string, { label: string; color: string }> = {
-  buy: { label: "Buy", color: colors.buy },
-  close_call: { label: "Close call", color: colors.close },
-  pass: { label: "Pass", color: colors.pass },
-  not_enough_sales: { label: "Not enough sales", color: colors.neutral },
-};
+import { callPill, colors, layout, radius, space, type, type Call } from "../src/theme";
+import { Button, Card, ErrorCard, Pill, SampleChip, StripeCard, money, niceDate } from "../src/ui";
 
 export default function History() {
   const router = useRouter();
@@ -39,41 +32,75 @@ export default function History() {
     ]);
 
   return (
-    <View style={{ flex: 1, padding: space.md }}>
-      <ErrorNote message={error} />
+    <View style={{ flex: 1 }}>
       <FlatList
         data={scans ?? []}
         keyExtractor={(s) => s.id}
-        ListEmptyComponent={scans ? <Text style={type.body}>No scans yet. Your scans show up here so you can find them again at the register.</Text> : undefined}
+        contentContainerStyle={{ padding: layout.screenPad, paddingBottom: layout.sectionGap * 2 }}
+        ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
+        ListHeaderComponent={error ? <ErrorCard message={error} style={{ marginBottom: space.md }} /> : undefined}
+        ListEmptyComponent={
+          scans ? (
+            <Card style={{ padding: space.xxl, alignItems: "center" }}>
+              <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.accentTint, alignItems: "center", justifyContent: "center" }}>
+                <Text style={type.emptyBadge}>No scans</Text>
+              </View>
+              <Text style={[type.body, { textAlign: "center", marginTop: space.lg }]}>
+                No scans yet. Your scans show up here so you can find them again at the register.
+              </Text>
+              <Button label="Scan an item" onPress={() => router.replace("/")} style={{ marginTop: space.xl, alignSelf: "stretch" }} />
+            </Card>
+          ) : undefined
+        }
         renderItem={({ item }) => {
-          const call = item.call ? CALL_TEXT[item.call] : undefined;
+          const key = item.call as Call | null;
+          const pill = key ? callPill[key] : undefined;
           const priced = item.count !== null;
           return (
             <Pressable
+              accessibilityRole="button"
               onPress={() =>
                 priced
                   ? router.push({ pathname: "/answer", params: { scanId: item.id, saved: "1" } })
                   : router.push({ pathname: "/confirm", params: { scanId: item.id, solid: "1" } })
               }
               onLongPress={() => confirmDelete(item)}
-              style={{ paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 2 }}
             >
-              <SampleBanner source={item.dataSource} />
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.md }}>
-                <Text style={[type.body, { flex: 1, fontWeight: "700" }]} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                {call ? <Text style={{ fontWeight: "800", color: call.color }}>{call.label}</Text> : null}
-              </View>
-              <Text style={type.small}>
-                {niceDate(item.createdAt)}
-                {priced ? ` · median ${money(item.median)} · ${item.count} sales` : " · not priced yet"}
-                {item.tagPrice !== null ? ` · tag ${money(item.tagPrice)}` : ""}
-              </Text>
+              <StripeCard stripe={pill ? pill.stripe : colors.lineSoft} padding={space.lg}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.md }}>
+                  <Text style={[type.bodyStrong, { flex: 1 }]} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  {pill ? <Pill label={pill.label} ground={pill.ground} textColor={pill.text} /> : null}
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm, marginTop: 6 }}>
+                  <SampleChip source={item.dataSource} />
+                  <Text style={[type.small, { flex: 1 }]}>
+                    {niceDate(item.createdAt)}
+                    {priced ? (
+                      <>
+                        {" · median "}
+                        <Text style={type.smallStrong}>{money(item.median)}</Text>
+                        {` · ${item.count} sales`}
+                      </>
+                    ) : (
+                      " · not priced yet"
+                    )}
+                    {item.tagPrice !== null ? (
+                      <>
+                        {" · tag "}
+                        <Text style={type.smallStrong}>{money(item.tagPrice)}</Text>
+                      </>
+                    ) : null}
+                  </Text>
+                </View>
+              </StripeCard>
             </Pressable>
           );
         }}
-        ListFooterComponent={scans && scans.length > 0 ? <Text style={[type.small, { marginTop: space.md }]}>Press and hold a scan to delete it.</Text> : undefined}
+        ListFooterComponent={
+          scans && scans.length > 0 ? <Text style={[type.caption, { textAlign: "center", marginTop: space.sm }]}>Press and hold a scan to delete it.</Text> : undefined
+        }
       />
     </View>
   );

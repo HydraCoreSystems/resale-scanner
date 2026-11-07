@@ -1,11 +1,23 @@
-import { computeStats, computeVerdict, type SoldRow, type VerdictCall } from "@rs/core";
+import { computeStats, computeVerdict, type SoldRow } from "@rs/core";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { api, type DataSource } from "../src/api";
 import { useVerdictSettings } from "../src/settings";
-import { colors, space, type } from "../src/theme";
-import { Button, Card, ErrorNote, NOT_AN_APPRAISAL, Row, SampleBanner, money, niceDate } from "../src/ui";
+import { colors, layout, radius, shadow, space, type, verdictTheme } from "../src/theme";
+import {
+  Button,
+  Card,
+  ChoiceChip,
+  ErrorCard,
+  FieldBox,
+  type InputHandle,
+  LedgerRow,
+  NOT_AN_APPRAISAL,
+  SamplePill,
+  money,
+  niceDate,
+} from "../src/ui";
 
 interface Loaded {
   words: string;
@@ -17,19 +29,6 @@ interface Loaded {
 
 type ConditionFilter = "any" | "new" | "used";
 
-const CALL_LABEL: Record<VerdictCall, string> = {
-  buy: "BUY",
-  close_call: "CLOSE CALL",
-  pass: "PASS",
-  not_enough_sales: "NOT ENOUGH SALES",
-};
-const CALL_COLOR: Record<VerdictCall, string> = {
-  buy: colors.buy,
-  close_call: colors.close,
-  pass: colors.pass,
-  not_enough_sales: colors.neutral,
-};
-
 export default function Answer() {
   const { scanId, words, saved } = useLocalSearchParams<{ scanId: string; words?: string; saved?: string }>();
   const { settings } = useVerdictSettings();
@@ -37,7 +36,8 @@ export default function Answer() {
   const [error, setError] = useState<string | null>(null);
   const [tag, setTag] = useState("");
   const [condition, setCondition] = useState<ConditionFilter>("any");
-  const [showList, setShowList] = useState(true);
+  const [showList, setShowList] = useState<boolean | null>(null);
+  const tagRef = useRef<InputHandle>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -89,131 +89,200 @@ export default function Answer() {
     return () => clearTimeout(t);
   }, [verdict, hasTag, tagNum, scanId]);
 
+  const pad = { paddingHorizontal: layout.screenPad };
+
   if (error) {
     return (
-      <View style={{ padding: space.md, gap: space.md }}>
-        <ErrorNote message={error} />
+      <View style={[pad, { paddingTop: space.lg, gap: layout.cardGap }]}>
+        <ErrorCard message={error} />
         <Button label="Try again" onPress={() => void load()} />
       </View>
     );
   }
   if (!data || !fullStats) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md }}>
-        <ActivityIndicator color={colors.accent} size="large" />
-        <Text style={type.body}>Finding recorded sales...</Text>
+      <View style={[pad, { paddingTop: space.lg }]}>
+        <Card style={{ padding: space.xxl, alignItems: "center" }}>
+          <ActivityIndicator color={colors.accent} size="large" />
+          <Text style={[type.body, { marginTop: space.lg }]}>Finding recorded sales...</Text>
+        </Card>
       </View>
     );
   }
 
+  const thin = stats.count < settings.minSales;
+  const expanded = showList ?? data.rows.length <= 5;
+  const callKey = verdict ? verdict.call : thin ? "not_enough_sales" : null;
+  const vt = callKey ? verdictTheme[callKey] : null;
+  const showFigures = !!verdict && verdict.call !== "not_enough_sales";
+
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: space.md, gap: space.md, paddingBottom: space.xl * 2 }}
+      contentContainerStyle={[pad, { paddingTop: space.lg, paddingBottom: layout.sectionGap * 2, gap: layout.cardGap }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
     >
-      <SampleBanner source={data.dataSource} />
-      <Text style={type.title}>{data.words}</Text>
+      <SamplePill source={data.dataSource} />
+      <Text style={type.itemName} numberOfLines={2}>
+        {data.words}
+      </Text>
 
-      <Card>
-        <Text style={type.small}>Median sold price</Text>
-        <Text style={type.big}>{money(stats.median)}</Text>
-        <Text style={[type.body, { marginTop: space.sm }]}>
-          Middle range {money(stats.low)} to {money(stats.high)}
-        </Text>
-        <Text style={[type.small, { marginTop: space.xs }]}>
-          {stats.count} {stats.count === 1 ? "sale" : "sales"} in the last {data.lookbackDays} days. Most recent sale {niceDate(stats.mostRecentSale)}.
-        </Text>
-        {data.lookbackDays > 90 ? <Text style={type.small}>Sales were thin, so the look back was widened.</Text> : null}
+      <Card style={{ padding: space.lg }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.lg }}>
+          <View>
+            <Text style={type.cardLabel}>Median sold</Text>
+            <Text style={type.medianFigure}>{money(stats.median)}</Text>
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <Text style={[type.bodyStrong, { textAlign: "right" }]}>
+              {money(stats.low)} to {money(stats.high)}
+            </Text>
+            <Text style={[type.small, { textAlign: "right" }]}>
+              {stats.count} {stats.count === 1 ? "sale" : "sales"} in the last {data.lookbackDays} days. Most recent sale {niceDate(stats.mostRecentSale)}.
+            </Text>
+            {data.lookbackDays > 90 ? <Text style={[type.small, { textAlign: "right" }]}>Sales were thin, so the look back was widened.</Text> : null}
+          </View>
+        </View>
       </Card>
 
       {fullStats.wideSpread ? (
         <Card>
-          <Text style={[type.body, { fontWeight: "700" }]}>Prices vary a lot. What shape is it in?</Text>
-          <Text style={[type.small, { marginTop: 4 }]}>Condition usually explains a wide range. Narrow the sales to match your item.</Text>
-          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
-            {(["any", "new", "used"] as const).map((c) => (
-              <Pressable
-                key={c}
-                onPress={() => setCondition(c)}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                  borderRadius: 999,
-                  backgroundColor: condition === c ? colors.accent : colors.page,
-                  borderWidth: 1,
-                  borderColor: colors.line,
-                }}
-              >
-                <Text style={{ fontWeight: "700", color: condition === c ? colors.accentText : colors.text }}>
-                  {c === "any" ? "Any" : c === "new" ? "New or sealed" : "Used"}
-                </Text>
-              </Pressable>
-            ))}
+          <Text style={type.bodyStrong}>Prices vary a lot. What shape is it in?</Text>
+          <Text style={[type.small, { marginTop: space.xs }]}>Condition usually explains a wide range. Narrow the sales to match your item.</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.md }}>
+            <ChoiceChip label="Any" selected={condition === "any"} onPress={() => setCondition("any")} />
+            <ChoiceChip label="New or sealed" selected={condition === "new"} onPress={() => setCondition("new")} />
+            <ChoiceChip label="Used" selected={condition === "used"} onPress={() => setCondition("used")} />
           </View>
         </Card>
       ) : null}
 
-      <Card>
-        <Text style={type.small}>Price on the tag</Text>
-        <TextInput
-          value={tag}
-          onChangeText={setTag}
-          keyboardType="decimal-pad"
-          placeholder="$0.00"
-          placeholderTextColor={colors.muted}
-          style={{ fontSize: 34, fontWeight: "800", color: colors.text, paddingVertical: 6 }}
-        />
-      </Card>
-
-      {verdict ? (
-        <Card style={{ borderColor: CALL_COLOR[verdict.call], borderWidth: 3 }}>
-          <Text style={{ fontSize: 34, fontWeight: "900", color: CALL_COLOR[verdict.call] }}>{CALL_LABEL[verdict.call]}</Text>
-          <Text style={[type.body, { marginTop: space.xs }]}>{verdict.explanation}</Text>
-          {verdict.call !== "not_enough_sales" ? (
-            <View style={{ marginTop: space.md }}>
-              <Row label="Median sold" value={money(verdict.medianSold)} />
-              <Row label={`Selling fee (${settings.feePercent}%)`} value={`-${money(verdict.feeAmount)}`} />
-              <Row label="Per order fee" value={`-${money(verdict.fixedFee)}`} />
-              <Row label="Shipping estimate" value={`-${money(verdict.shipping)}`} />
-              <Row label="You would keep" value={money(verdict.expectedKeep)} bold />
-              <Row label="Tag price" value={`-${money(verdict.tagPrice)}`} />
-              <Row label="Profit" value={money(verdict.expectedProfit)} bold />
-              {verdict.returnPercent !== null ? <Row label="Return on cost" value={`${Math.round(verdict.returnPercent)}%`} /> : null}
-            </View>
-          ) : null}
-        </Card>
-      ) : stats.count < settings.minSales ? (
+      <View style={{ gap: space.sm }}>
         <Card>
-          <Text style={{ fontSize: 26, fontWeight: "900", color: colors.neutral }}>NOT ENOUGH SALES</Text>
-          <Text style={[type.body, { marginTop: 4 }]}>Only {stats.count} recorded {stats.count === 1 ? "sale" : "sales"} found. Too few to call it.</Text>
+          <Text style={type.cardLabel}>Price on the tag</Text>
+          <View style={{ marginTop: space.sm }}>
+            <FieldBox
+              inputRef={tagRef}
+              value={tag}
+              onChangeText={setTag}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              prefix="$"
+              prefixStyle={type.dollarSign}
+              inputStyle={type.tagInput}
+              height={layout.tagFieldHeight}
+              filled={tag.trim() !== ""}
+              accessibilityLabel="Price on the tag"
+            />
+          </View>
         </Card>
-      ) : (
-        <Text style={type.small}>Type the tag price to get the call.</Text>
-      )}
 
-      <Pressable onPress={() => setShowList((s) => !s)}>
-        <Text style={[type.body, { fontWeight: "700" }]}>{showList ? "Hide" : "Show"} the {rows.length} sales behind this number</Text>
-      </Pressable>
-      {showList
-        ? rows.map((r, i) => (
-            <View key={`${r.url ?? r.title}-${i}`} style={{ borderBottomWidth: 1, borderBottomColor: colors.line, paddingBottom: space.sm }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.md }}>
-                <Text style={[type.body, { flex: 1 }]} numberOfLines={2}>
-                  {r.title}
-                </Text>
-                <Text style={[type.body, { fontWeight: "800" }]}>{money(r.price)}</Text>
+        {vt && callKey ? (
+          <View style={[{ backgroundColor: vt.fill, borderRadius: radius.card, padding: layout.cardPad }, shadow.verdict]}>
+            <Text style={[type.verdictWord, { color: vt.text }]}>{vt.label}</Text>
+            <Text style={[type.body, { color: vt.text, marginTop: 6 }]}>
+              {verdict
+                ? verdict.explanation
+                : `Only ${stats.count} recorded ${stats.count === 1 ? "sale" : "sales"} found. Too few to call it.`}
+            </Text>
+            {showFigures && verdict ? (
+              <>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.lg, marginTop: space.lg }}>
+                  <View style={{ flexGrow: 1, flexBasis: 120 }}>
+                    <Text style={[type.cardLabel, { color: vt.soft }]}>You would keep</Text>
+                    <Text style={[type.verdictFigure, { color: vt.text }]}>{money(verdict.expectedKeep)}</Text>
+                  </View>
+                  <View style={{ flexGrow: 1, flexBasis: 120 }}>
+                    <Text style={[type.cardLabel, { color: vt.soft }]}>Profit</Text>
+                    <Text style={[type.verdictFigure, { color: vt.text }]}>{money(verdict.expectedProfit)}</Text>
+                  </View>
+                </View>
+                <View style={{ height: 1, backgroundColor: vt.divider, marginTop: space.lg }} />
+                <View style={{ marginTop: space.sm }}>
+                  <LedgerRow tone={verdict.call} label="Median sold" value={money(verdict.medianSold)} />
+                  <LedgerRow tone={verdict.call} label={`Selling fee (${settings.feePercent}%)`} value={`-${money(verdict.feeAmount)}`} />
+                  <LedgerRow tone={verdict.call} label="Per order fee" value={`-${money(verdict.fixedFee)}`} />
+                  <LedgerRow tone={verdict.call} label="Shipping estimate" value={`-${money(verdict.shipping)}`} />
+                  <LedgerRow tone={verdict.call} bold label="You would keep" value={money(verdict.expectedKeep)} />
+                  <LedgerRow tone={verdict.call} label="Tag price" value={`-${money(verdict.tagPrice)}`} />
+                  <LedgerRow
+                    tone={verdict.call}
+                    bold
+                    label="Profit"
+                    value={money(verdict.expectedProfit)}
+                    last={verdict.returnPercent === null}
+                  />
+                  {verdict.returnPercent !== null ? (
+                    <LedgerRow tone={verdict.call} last label="Return on cost" value={`${Math.round(verdict.returnPercent)}%`} />
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Type the tag price"
+            onPress={() => tagRef.current?.focus()}
+            style={{
+              backgroundColor: colors.field,
+              borderRadius: radius.card,
+              padding: layout.cardPad,
+              borderWidth: 1,
+              borderColor: colors.lineStrong,
+              alignItems: "center",
+            }}
+          >
+            <Text style={[type.bodyStrong, { textAlign: "center" }]}>Type the tag price to get the call</Text>
+            <Text style={[type.small, { textAlign: "center", marginTop: space.xs }]}>The call counts fees and shipping, so the profit is real.</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <View style={{ marginTop: layout.sectionGap - layout.cardGap }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: space.sm }}>
+          <Text style={[type.cardLabel, { flex: 1 }]}>The sales behind this number ({rows.length})</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowList(!expanded)}
+            style={{ minHeight: layout.minTouch, justifyContent: "center", paddingLeft: space.lg }}
+          >
+            <Text style={[type.bodyStrong, { color: colors.accent }]}>{expanded ? "Hide" : "Show"}</Text>
+          </Pressable>
+        </View>
+        {expanded ? (
+          <Card style={{ paddingVertical: space.xs }}>
+            {rows.map((r, i) => (
+              <View
+                key={`${r.url ?? r.title}-${i}`}
+                style={[
+                  { paddingVertical: layout.rowPad },
+                  i < rows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+                ]}
+              >
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.lg }}>
+                  <Text style={[type.body, { flex: 1 }]} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={[type.bodyStrong, { width: 88, textAlign: "right" }]}>{money(r.price)}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.xs }}>
+                  <Text style={type.small}>Sold {niceDate(r.soldDate)}</Text>
+                  {r.condition ? (
+                    <View style={{ backgroundColor: colors.field, borderRadius: radius.pill, paddingVertical: 2, paddingHorizontal: space.sm }}>
+                      <Text style={type.conditionChip}>{r.condition}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
-              <Text style={type.small}>
-                Sold {niceDate(r.soldDate)}
-                {r.condition ? ` · ${r.condition}` : ""}
-              </Text>
-            </View>
-          ))
-        : null}
+            ))}
+          </Card>
+        ) : null}
+      </View>
 
-      <Text style={type.small}>{NOT_AN_APPRAISAL}</Text>
+      <Text style={[type.caption, { marginTop: space.xs }]}>{NOT_AN_APPRAISAL}</Text>
     </ScrollView>
   );
 }
